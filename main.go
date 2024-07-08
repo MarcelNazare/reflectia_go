@@ -17,6 +17,7 @@ func printResponse(resp *genai.GenerateContentResponse) {
 		if cand.Content != nil {
 			for _, part := range cand.Content.Parts {
 				fmt.Println(part)
+
 			}
 		}
 	}
@@ -37,10 +38,12 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
     scanner.Scan()
     userInput = scanner.Text()
-    fmt.Println(userInput)
+    fmt.Println("User Input :- "+userInput+"\n\n")
 
 	//var userMessage string = `For what is life with purpose`
 	var userMessage = userInput
+
+
 
 	client, err := genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
 	if err != nil {
@@ -55,6 +58,7 @@ func main() {
 		log.Fatal(err)
 	}
 	elapsed := time.Since(start)
+	fmt.Printf("Sytem Response-:\n")
 	printResponse(resp)
 
 	// Print token usage, tokens per second, and total execution time
