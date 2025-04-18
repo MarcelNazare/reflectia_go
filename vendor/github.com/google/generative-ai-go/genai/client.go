@@ -87,7 +87,15 @@ Import the option package as "google.golang.org/api/option".`)
 	if err != nil {
 		return nil, fmt.Errorf("creating discovery client: %w", err)
 	}
-	gc.SetGoogleClientInfo("gccl", "v"+internal.Version, "genai-go", internal.Version)
+
+	kvs := []string{"gccl", "v" + internal.Version, "genai-go", internal.Version}
+	if a, ok := optionOfType[*clientInfo](opts); ok {
+		kvs = append(kvs, a.key, a.value)
+	}
+	gc.SetGoogleClientInfo(kvs...)
+	mc.SetGoogleClientInfo(kvs...)
+	fc.SetGoogleClientInfo(kvs...)
+
 	return &Client{gc, mc, fc, cc, ds}, nil
 }
 
@@ -171,7 +179,7 @@ func fullModelName(name string) string {
 
 // GenerateContent produces a single request and response.
 func (m *GenerativeModel) GenerateContent(ctx context.Context, parts ...Part) (*GenerateContentResponse, error) {
-	content := newUserContent(parts)
+	content := NewUserContent(parts...)
 	req, err := m.newGenerateContentRequest(content)
 	if err != nil {
 		return nil, err
@@ -186,7 +194,7 @@ func (m *GenerativeModel) GenerateContent(ctx context.Context, parts ...Part) (*
 // GenerateContentStream returns an iterator that enumerates responses.
 func (m *GenerativeModel) GenerateContentStream(ctx context.Context, parts ...Part) *GenerateContentResponseIterator {
 	iter := &GenerateContentResponseIterator{}
-	req, err := m.newGenerateContentRequest(newUserContent(parts))
+	req, err := m.newGenerateContentRequest(NewUserContent(parts...))
 	if err != nil {
 		iter.err = err
 	} else {
@@ -218,7 +226,7 @@ func (m *GenerativeModel) newGenerateContentRequest(contents ...*Content) (*pb.G
 		if m.CachedContentName != "" {
 			cc = &m.CachedContentName
 		}
-		return &pb.GenerateContentRequest{
+		req := &pb.GenerateContentRequest{
 			Model:             m.fullName,
 			Contents:          transformSlice(contents, (*Content).toProto),
 			SafetySettings:    transformSlice(m.SafetySettings, (*SafetySetting).toProto),
@@ -228,11 +236,9 @@ func (m *GenerativeModel) newGenerateContentRequest(contents ...*Content) (*pb.G
 			SystemInstruction: m.SystemInstruction.toProto(),
 			CachedContent:     cc,
 		}
+		debugPrint(req)
+		return req
 	})
-}
-
-func newUserContent(parts []Part) *Content {
-	return &Content{Role: roleUser, Parts: parts}
 }
 
 // GenerateContentResponseIterator is an iterator over GnerateContentResponse.
@@ -303,7 +309,7 @@ func (iter *GenerateContentResponseIterator) MergedResponse() *GenerateContentRe
 
 // CountTokens counts the number of tokens in the content.
 func (m *GenerativeModel) CountTokens(ctx context.Context, parts ...Part) (*CountTokensResponse, error) {
-	req, err := m.newCountTokensRequest(newUserContent(parts))
+	req, err := m.newCountTokensRequest(NewUserContent(parts...))
 	if err != nil {
 		return nil, err
 	}
@@ -319,10 +325,12 @@ func (m *GenerativeModel) newCountTokensRequest(contents ...*Content) (*pb.Count
 	if err != nil {
 		return nil, err
 	}
-	return &pb.CountTokensRequest{
+	req := &pb.CountTokensRequest{
 		Model:                  m.fullName,
 		GenerateContentRequest: gcr,
-	}, nil
+	}
+	debugPrint(req)
+	return req, nil
 }
 
 // Info returns information about the model.
@@ -332,6 +340,7 @@ func (m *GenerativeModel) Info(ctx context.Context) (*ModelInfo, error) {
 
 func (c *Client) modelInfo(ctx context.Context, fullName string) (*ModelInfo, error) {
 	req := &pb.GetModelRequest{Name: fullName}
+	debugPrint(req)
 	res, err := c.mc.GetModel(ctx, req)
 	if err != nil {
 		return nil, err
