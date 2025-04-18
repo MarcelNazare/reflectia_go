@@ -1,14 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"time"
-	"bufio"
+
 	"github.com/google/generative-ai-go/genai"
+	"github.com/joho/godotenv"
 	"google.golang.org/api/option"
 )
 
@@ -25,6 +27,11 @@ func printResponse(resp *genai.GenerateContentResponse) {
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	DEFAULT_GEMINI_MODEL := "gemini-1.5-pro-latest" // try "models/gemini-1.5-pro-latest" or "gemini-pro"
 	modelString := flag.String("model", DEFAULT_GEMINI_MODEL, "Model to use for the API")
 	flag.Parse()
@@ -36,16 +43,20 @@ func main() {
 	var userInput string
 
 	scanner := bufio.NewScanner(os.Stdin)
-    scanner.Scan()
-    userInput = scanner.Text()
-    fmt.Println("User Input :- "+userInput+"\n\n")
+	scanner.Scan()
+	userInput = scanner.Text()
+	fmt.Println("User Input :- " + userInput + "\n\n")
 
 	//var userMessage string = `For what is life with purpose`
 	var userMessage = userInput
 
+	// Retrieve the API key from the environment variable
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" {
+		log.Fatal("GEMINI_API_KEY is not set in the environment")
+	}
 
-
-	client, err := genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
+	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -53,7 +64,7 @@ func main() {
 
 	model := client.GenerativeModel(*modelString)
 	start := time.Now()
-	resp, err := model.GenerateContent(ctx, genai.Text(systemPrompt+ userMessage))
+	resp, err := model.GenerateContent(ctx, genai.Text(systemPrompt+userMessage))
 	if err != nil {
 		log.Fatal(err)
 	}
